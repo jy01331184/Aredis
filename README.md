@@ -174,7 +174,7 @@ public class TeamAPojoStrategy implements APojoStrategy<Team> {
 
 #### Aredis的实现：
 **1.aredis的存储协议**
-rdb:<br>
+<br>rdb:<br>
 <img src="https://github.com/jy01331184/Aredis/blob/master/image/s1.png" width="390" height="341"><br>
 aof:<br>
 <img src="https://github.com/jy01331184/Aredis/blob/master/image/s2.png" width="272" height="369">
