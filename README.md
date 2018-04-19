@@ -72,7 +72,7 @@ System.out.println("get key:" + cache.get("key"));
 ```
 
 <span style="color:#D4380D;">**Aredis的配置选项：**</span>
-通过AredisConfig对象指定，其中的接口返回值含义如下：
+通过AredisConfig对象指定，其中的接口返回值含义如下：
 ```java
     /**
      * return 使用rdb 或aof 模式,默认是rdb模式
@@ -174,15 +174,14 @@ public class TeamAPojoStrategy implements APojoStrategy<Team> {
 
 #### Aredis的实现：
 **1.aredis的存储协议**
-rdb:
-![](https://github.com/jy01331184/Aredis/blob/master/image/s1.png "")
+rdb:<br>
+<img src="https://github.com/jy01331184/Aredis/blob/master/image/s1.png" width="390" height="341"><br>
+aof:<br>
+<img src="https://github.com/jy01331184/Aredis/blob/master/image/s2.png" width="272" height="369">
 
-aof:
-![](https://github.com/jy01331184/Aredis/blob/master/image/s2.png "")
+**2.aredis的结构**<br>
+<img src="https://github.com/jy01331184/Aredis/blob/master/image/s3.png" width="362" height="273">
 
-**2.aredis的结构**
-
-![](https://github.com/jy01331184/Aredis/blob/master/image/s3.png "")
 **3.native层的数据结构**
    native存储key-value使用 stl的标准库
 ```
