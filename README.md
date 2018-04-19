@@ -56,7 +56,7 @@ Append Only File模式，将redis执行过的所有写指令记录下来追加
 
 #### Aredis的使用：
 
-      创建一个aredis实例
+创建一个aredis实例
 ```java
 ARedisCache cache = ARedisCache.create(this, "test", new AredisDefaultConfig() {
     @Override
@@ -169,7 +169,7 @@ public class TeamAPojoStrategy implements APojoStrategy<Team> {
 }
 ```
 ```java
-        APojoManager.regist(Team.class, 10, new TeamAPojoStrategy());
+    APojoManager.regist(Team.class, 10, new TeamAPojoStrategy());
 ```
 
 #### Aredis的实现：
@@ -195,7 +195,7 @@ string为 aredis节点名称，lru为实际存储键值对的容器，也使用h
 所以带来了写镜像时数据时如果继续操作内存字典带来的数据不同步问题(如perference可能产生的concurrentmodify问题)，目前解决方案是在准备写镜像时，线程安全的设置一个标记flag，在这      个标记下所有客户端对aredis的set/delete操作都写到一个副本中，等vfork写结束再合并内存的主字典与这个副本。这保证      了在写操作时aredis依然可以对客户端提供服务，同时一个客户端的提交是对所有客户端可见的。
 
 
-#### Aredis的数据：
+#### Aredis的数据对比：
 | <span style="background-color:#E4F7D2;">写简单数据（2w个uuid）</span> | <span style="background-color:#E4F7D2;">同步耗时   (50个key/commit</span>) | <span style="background-color:#E4F7D2;">异步耗时（50个key/apply）</span> | <span style="background-color:#E4F7D2;">内存</span> |
 | :--- | :--- | :--- | :--- |
 | aredis-rdb | 4100ms | 160ms | native:4m heap:0m |
