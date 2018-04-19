@@ -175,14 +175,14 @@ public class TeamAPojoStrategy implements APojoStrategy<Team> {
 #### Aredis的实现：
 **1.aredis的存储协议**
 rdb:
-![DingTalk20180130202206.png | center | 414x363](https://gw.alipayobjects.com/zos/skylark/7c28552c-d97c-41a8-8c9c-107b1f775e06/2018/png/d2f2c0f1-7fc6-43da-b596-a7f8badca77d.png "")
+![](https://github.com/jy01331184/Aredis/blob/master/image/s1.png "")
 
 aof:
-![DingTalk20180130202306.png | center | 324x437](https://gw.alipayobjects.com/zos/skylark/29ff6661-96bf-4777-a6c9-33ba837185d5/2018/png/901326d3-bd78-410c-bf0b-30cee9e35f86.png "")
+![](https://github.com/jy01331184/Aredis/blob/master/image/s2.png "")
 
 **2.aredis的结构**
 
-![DingTalk20180131181739.png | center | 618x466](https://gw.alipayobjects.com/zos/skylark/c7a349f5-f1f3-47e4-97a5-f31d2e5bedea/2018/png/abf24c21-70ff-431f-9ab9-6d0b95651089.png "")
+![](https://github.com/jy01331184/Aredis/blob/master/image/s3.png "")
 **3.native层的数据结构**
    native存储key-value使用 stl的标准库
 ```
