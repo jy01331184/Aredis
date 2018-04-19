@@ -1,0 +1,105 @@
+import org.gradle.api.internal.artifacts.DefaultPublishArtifactSet
+import org.gradle.api.internal.artifacts.mvnsettings.DefaultLocalMavenRepositoryLocator
+import org.gradle.api.internal.artifacts.mvnsettings.DefaultMavenFileLocations
+import org.gradle.api.internal.artifacts.mvnsettings.DefaultMavenSettingsProvider
+import org.gradle.api.internal.artifacts.mvnsettings.LocalMavenRepositoryLocator
+import org.gradle.api.internal.artifacts.publish.DefaultPublishArtifact
+
+apply plugin: 'com.android.library'
+apply plugin: 'maven'
+
+android {
+    compileSdkVersion 23
+    buildToolsVersion "19.1.0"
+
+    defaultConfig {
+        minSdkVersion 15
+        targetSdkVersion 23
+        versionCode 1
+        versionName "1.0"
+
+    }
+    sourceSets.main {
+        jni.srcDirs = ['src/main/jni']
+    }
+    buildTypes {
+        debug{
+            ndk {
+                moduleName "aredis"
+                ldLibs "log", "z", "m"
+                stl "stlport_shared"
+                abiFilters "armeabi"
+                //cFlags "-fexceptions"
+            }
+        }
+        release {
+            ndk {
+                moduleName "aredis"
+                ldLibs "log", "z", "m"
+                stl "stlport_shared"
+                abiFilters "armeabi","armeabi-v7a","x86"
+                cFlags "-funwind-tables -Wl,--no-merge-exidx-entries"
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        targetCompatibility 1.7
+        sourceCompatibility 1.7
+    }
+}
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile group: 'com.alibaba', name: 'fastjson', version: '1.2.39'
+}
+
+group='com.alipay.aredis'
+version='0.1.3'
+def mavenLocalRepo = ''
+
+afterEvaluate{
+
+    DefaultMavenFileLocations locations = new DefaultMavenFileLocations()
+    DefaultMavenSettingsProvider provider = new DefaultMavenSettingsProvider(locations)
+    LocalMavenRepositoryLocator locator = new DefaultLocalMavenRepositoryLocator(provider)
+
+    mavenLocalRepo = locator.localMavenRepository.absolutePath
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+//                repository(url: "http://mvn.dev.alipay.net:8081/artifactory/content/repositories/mobile-haina") {
+//                    authentication(userName: 'xunlong.wxl', password: 'qweru12347!@#$&')
+//                }
+                repository (url: uri(mavenLocalRepo))
+//                repository (url: 'http://localhost:8081/repository/maven-releases/'){
+//                    authentication(userName: "admin", password: "123")
+//                }
+            }
+        }
+    }
+
+    Task uploadArchivesTask = tasks.findByName("uploadArchives")
+    uploadArchivesTask.doFirst {
+        Date date = new Date()
+
+
+        DefaultPublishArtifactSet ass = it.configuration.getArtifacts()
+
+        File manifestFile = new File(buildDir.absolutePath + "/intermediates/bundles/release/AndroidManifest.xml")
+        DefaultPublishArtifact manifestArtifact = new DefaultPublishArtifact('', 'xml', 'xml', 'AndroidManifest', date, manifestFile, new Object[0])
+        ass.add(manifestArtifact)
+
+        Task transformDex = tasks.findByName('transformClassesAndResourcesWithSyncLibJarsForRelease')
+        transformDex.outputs.files.files.each {
+            if(it.absolutePath.contains("/classes.jar"))
+            {
+                DefaultPublishArtifact jarFileArtifact = new DefaultPublishArtifact('', 'jar', 'jar', '', date, it, new Object[0])
+                ass.add(jarFileArtifact)
+            }
+        }
+    }
+
+
+}
