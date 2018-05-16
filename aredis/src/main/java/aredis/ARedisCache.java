@@ -24,7 +24,8 @@ import aredis.ext.ARedisException;
  */
 
 public class ARedisCache {
-    static final int STATE_LOADING = 1, STATE_LOADED = 2, STATE_FAIL = -1;
+    static final int STATE_LOADING = 1, STATE_LOADED = 2, STATE_FAIL = -1, STATE_CONCURRENT = -2;
+
     private static Map<String, ARedisCache> caches = new HashMap<>();
 
     private long last_rdb_save_time;
@@ -53,14 +54,9 @@ public class ARedisCache {
                 }
             });
 
-//    private ExecutorService executorService = Executors.newSingleThreadExecutor(new ThreadFactory() {
-//        @Override
-//        public Thread newThread(Runnable r) {
-//            return new Thread(r, "Native Pool");
-//        }
-//    });
 
     public static synchronized ARedisCache create(Context context, String name) {
+
         ARedisCache redis = caches.get(name);
         if (redis == null) {
             redis = new ARedisCache(context, name, new AredisDefaultConfig());
@@ -99,8 +95,6 @@ public class ARedisCache {
         } else {
             throw new RuntimeException("mode must be least one of aof or rdb");
         }
-
-
     }
 
     public synchronized void set(final String key, final Object data, long expire) throws Exception {
@@ -108,9 +102,30 @@ public class ARedisCache {
 
         NativeRecord record = Native.setNative(name, key, data, expire);
         if (!persist) {
+            NativeRecord.release(record);
             return;
         }
 
+        if (aof) {
+            if (strictMode) {
+                strictAof(key, record, max_io_wait_time);
+            } else {
+                mANative.appendAOF(name, key, record);
+            }
+        } else if (rdb) {
+            rdb_change_count++;
+            if (rdb_change_count % rdb_save_count == 0 || (last_rdb_save_time > 0 && last_rdb_save_time - System.currentTimeMillis() > rdb_save_time)) {
+                if (mANative.nativeForkRDB(name)) {
+                    last_rdb_save_time = System.currentTimeMillis();
+                }
+            }
+        }
+        NativeRecord.release(record);
+    }
+
+    public synchronized void setRaw(String key, byte type, byte[] data, long expire) throws Exception {
+        checkInit();
+        NativeRecord record = Native.setRawNative(name, key, type, data, expire);
         if (aof) {
             if (strictMode) {
                 strictAof(key, record, max_io_wait_time);
@@ -133,6 +148,7 @@ public class ARedisCache {
 
         NativeRecord record = Native.laddNative(name, key, data);
         if (!persist) {
+            NativeRecord.release(record);
             return;
         }
 
@@ -156,6 +172,11 @@ public class ARedisCache {
     public synchronized Object get(final String key) throws Exception {
         checkInit();
         return Native.getNative(name, key);
+    }
+
+    public synchronized NativeRecord getRaw(String key) throws Exception {
+        checkInit();
+        return Native.getRaw(name, key);
     }
 
     public synchronized void delete(String key) throws Exception {
@@ -218,16 +239,21 @@ public class ARedisCache {
         } else if (initState.get() == STATE_LOADING) {
             lock.lock();
             if (initState.get() == STATE_LOADING) {
-                initCondition.await(max_io_wait_time, TimeUnit.MILLISECONDS);
-                if (initState.get() != STATE_LOADED) {
+                boolean overtime = initCondition.await(max_io_wait_time, TimeUnit.MILLISECONDS);
+                if (overtime && initState.get() != STATE_LOADED) {
                     lock.unlock();
-                    throw new ARedisException("aredis init wait overtime :" + name);
+                    throw new ARedisException("aredis init over time :" + name);
+                } else if (initState.get() != STATE_LOADED) {
+                    lock.unlock();
+                    throw new ARedisException("aredis init fail :" + name);
                 }
             } else if (initState.get() == STATE_FAIL) {
                 lock.unlock();
                 throw new ARedisException("aredis init fail :" + name);
             }
             lock.unlock();
+        } else if (initState.get() == STATE_CONCURRENT) {
+            throw new ARedisException("aredis not support more than one process :" + name);
         }
     }
 }

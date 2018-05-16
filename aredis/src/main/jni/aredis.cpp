@@ -52,12 +52,15 @@ void Java_aredis_Native_deleteAof(JNIEnv *env, jclass cls, jstring cacheName, js
     env->ReleaseStringUTFChars(key, keyStr);
 }
 
-void Java_aredis_Native_readAof(JNIEnv *env, jclass cls, jstring cacheName) {
+jint Java_aredis_Native_readAof(JNIEnv *env, jclass cls, jstring cacheName) {
     const char *str = env->GetStringUTFChars(cacheName, 0);
     lru *l = readAof(env, str);
-    init(str, l);
-
     env->ReleaseStringUTFChars(cacheName, str);
+    if(!l){
+        return -2;
+    }
+    init(str, l);
+    return 2;
 }
 
 void Java_aredis_Native_syncAof(JNIEnv *env, jclass cls, jstring cacheName) {
@@ -68,11 +71,15 @@ void Java_aredis_Native_syncAof(JNIEnv *env, jclass cls, jstring cacheName) {
     env->ReleaseStringUTFChars(cacheName, dictStr);
 }
 
-void Java_aredis_Native_readRdb(JNIEnv *env, jclass cls, jstring cacheName) {
+jint Java_aredis_Native_readRdb(JNIEnv *env, jclass cls, jstring cacheName) {
     const char *str = env->GetStringUTFChars(cacheName, 0);
     lru *l = readRdb(env, str);
-    init(str, l);
     env->ReleaseStringUTFChars(cacheName, str);
+    if(!l){
+        return -2;
+    }
+    init(str, l);
+    return 2;
 }
 
 void Java_aredis_Native_syncRdb(JNIEnv *env, jclass cls, jstring cacheName) {

@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include "const.h"
 #include "lru.h"
+#include <sys/file.h>
 
 const char *HEADER = "AREDIS";
 signed int AREDIS_VERSION = 1;
@@ -466,15 +467,26 @@ lru *readRdb(JNIEnv *env, const char *cacheName) {
     char *fileName = strcat(prefix, RDB_POSTFIX);
 
     if (access(fileName, 0)) {
+        int fd = open(fileName, O_CREAT);
+        int result = flock(fd, LOCK_EX | LOCK_NB);
+        if (result < 0) {
+            return NULL;
+        }
         LOGE("%s not exist", fileName);
         return l;
     }
-
-    FILE *fileHandle = fopen(fileName, "r");
+    FILE *fileHandle = fopen(fileName, "rw");
 
     if (!fileHandle) {
         LOGE("error open %s", fileName);
-        return l;
+        return NULL;
+    }
+
+    int fd = open(fileName, O_RDWR);
+    int result = flock(fd, LOCK_EX | LOCK_NB);
+    LOGE("FD:%d flock:%d", fd, result);
+    if (result < 0) {
+        return NULL;
     }
 
     char headStr[7] = {'\0'};
@@ -574,6 +586,11 @@ lru *readAof(JNIEnv *env, const char *cacheName) {
     char *fileName = strcat(prefix, AOF_POSTFIX);
 
     if (access(fileName, 0)) {
+        int fd = open(fileName, O_CREAT);
+        int result = flock(fd, LOCK_EX | LOCK_NB);
+        if (result < 0) {
+            return NULL;
+        }
         LOGE("%s not exist", fileName);
         return l;
     }
@@ -582,7 +599,14 @@ lru *readAof(JNIEnv *env, const char *cacheName) {
 
     if (!fileHandle) {
         LOGE("error open %s", fileName);
-        return l;
+        return NULL;
+    }
+
+    int fd = open(fileName, O_RDWR);
+    int result = flock(fd, LOCK_EX | LOCK_NB);
+    LOGE("FD:%d flock:%d", fd, result);
+    if (result < 0) {
+        return NULL;
     }
 
     jbyte aofType[1] = {0};

@@ -37,10 +37,10 @@ public class Native {
             public void run() {
                 try {
                     long time = System.currentTimeMillis();
-                    readAof(name);
+                    int result = readAof(name);
                     System.out.println("init use time:" + (System.currentTimeMillis() - time));
                     lock.lock();
-                    initState.set(ARedisCache.STATE_LOADED);
+                    initState.set(result);
                     condition.signalAll();
                     lock.unlock();
                 } catch (Exception e) {
@@ -61,10 +61,10 @@ public class Native {
             public void run() {
                 try {
                     long time = System.currentTimeMillis();
-                    readRdb(name);
+                    int result = readRdb(name);
                     System.out.println("init use time:" + (System.currentTimeMillis() - time));
                     lock.lock();
-                    initState.set(ARedisCache.STATE_LOADED);
+                    initState.set(result);
                     condition.signalAll();
                     lock.unlock();
                 } catch (Exception e) {
@@ -200,6 +200,16 @@ public class Native {
         return record;
     }
 
+    public static synchronized NativeRecord setRawNative(String name, String key, byte type, byte[] values, long expire) throws Exception {
+        set(name, key, type, values, expire);
+        NativeRecord record = NativeRecord.acquire();
+        record.type = type;
+        record.value = values;
+        record.expire = expire;
+        return record;
+    }
+
+
     public static synchronized NativeRecord laddNative(String name, String key, Object value) throws Exception {
         byte type = AType.getType(value);
         byte[] values = AType.getTypeBytes(value);
@@ -226,6 +236,12 @@ public class Native {
         return null;
     }
 
+    public static synchronized NativeRecord getRaw(String name, String key) throws Exception {
+        NativeRecord record = get(name, key);
+
+        return record;
+    }
+
     public static void removeNative(String name, String key) {
         remove(name, key);
     }
@@ -235,9 +251,9 @@ public class Native {
      * 本地方法区
      */
 
-    private native void readAof(String name);
+    private native int readAof(String name);
 
-    private native void readRdb(String name);
+    private native int readRdb(String name);
 
     private static native void writeAof(String name, String key, NativeRecord record);
 

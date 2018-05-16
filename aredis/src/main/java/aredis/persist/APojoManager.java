@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import aredis.BinaryUtil;
+import aredis.ext.ARedisException;
 
 /**
  * Created by tianyang on 17/12/28.
@@ -16,15 +17,15 @@ public class APojoManager {
     private static Map<Class, Integer> mappings = new HashMap<>();
     private static Map<Integer, Class> revertMappings = new HashMap<>();
 
-    public static void regist(Class<? extends APersist> cls, int type) {
+    public static void regist(Class<? extends APersist> cls, int type) throws ARedisException {
         regist(cls, type, null);
     }
 
-    public static void regist(Class<? extends APersist> cls, int type, APojoStrategy<? extends APersist> strategy) {
+    public static void regist(Class<? extends APersist> cls, int type, APojoStrategy<? extends APersist> strategy) throws ARedisException {
         Class oldCls = revertMappings.put(type, cls);
         if (oldCls != null && oldCls != cls) {  //一个type对应多个 cls
             revertMappings.remove(type);
-            throw new RuntimeException("type:" + type + " with two classes:" + oldCls + "," + cls);
+            throw new ARedisException("type:" + type + " with two classes:" + oldCls + "," + cls);
         }
         mappings.put(cls, type);
         if (strategy != null) {

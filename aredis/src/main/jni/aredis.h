@@ -16,11 +16,11 @@ JNIEXPORT jint JNICALL Java_aredis_Native_forkNative(JNIEnv *, jclass, jstring);
 
 JNIEXPORT void JNICALL Java_aredis_Native_syncRdb(JNIEnv *, jclass, jstring);
 
-JNIEXPORT void JNICALL Java_aredis_Native_readRdb(JNIEnv *, jclass, jstring);
+JNIEXPORT jint JNICALL Java_aredis_Native_readRdb(JNIEnv *, jclass, jstring);
 
 JNIEXPORT void JNICALL Java_aredis_Native_syncAof(JNIEnv *, jclass, jstring);
 
-JNIEXPORT void JNICALL Java_aredis_Native_readAof(JNIEnv *, jclass, jstring);
+JNIEXPORT jint JNICALL Java_aredis_Native_readAof(JNIEnv *, jclass, jstring);
 
 JNIEXPORT void JNICALL Java_aredis_Native_writeAof(JNIEnv *, jclass, jstring, jstring, jobject);
 
