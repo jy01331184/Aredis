@@ -2,9 +2,10 @@ package aredis;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+
+import aredis.ext.ARedisException;
 
 /**
  * Created by tianyang on 17/11/17.
@@ -30,8 +31,8 @@ public class Native {
         this.executorService = executorService;
     }
 
-    public void initReadAOF(final String name, final AtomicInteger initState, final Condition condition) {
-        initState.set(ARedisCache.STATE_LOADING);
+    public void initReadAOF(final String name, final NativeListener listener, final Condition condition) {
+        listener.onResult(ARedisCache.STATE_LOADING);
         executorService.execute(new Runnable() {
             @Override
             public void run() {
@@ -39,13 +40,14 @@ public class Native {
                     long time = System.currentTimeMillis();
                     int result = readAof(name);
                     System.out.println("init use time:" + (System.currentTimeMillis() - time));
+
                     lock.lock();
-                    initState.set(result);
+                    listener.onResult(result);
                     condition.signalAll();
                     lock.unlock();
                 } catch (Exception e) {
                     lock.lock();
-                    initState.set(ARedisCache.STATE_FAIL);
+                    listener.onResult(ARedisCache.STATE_FAIL);
                     condition.signalAll();
                     lock.unlock();
                     e.printStackTrace();
@@ -54,8 +56,8 @@ public class Native {
         });
     }
 
-    public void initReadRDB(final String name, final AtomicInteger initState, final Condition condition) {
-        initState.set(ARedisCache.STATE_LOADING);
+    public void initReadRDB(final String name, final NativeListener listener, final Condition condition) {
+        listener.onResult(ARedisCache.STATE_LOADING);
         executorService.execute(new Runnable() {
             @Override
             public void run() {
@@ -64,13 +66,13 @@ public class Native {
                     int result = readRdb(name);
                     System.out.println("init use time:" + (System.currentTimeMillis() - time));
                     lock.lock();
-                    initState.set(result);
+                    listener.onResult(result);
                     condition.signalAll();
                     lock.unlock();
                 } catch (Exception e) {
                     e.printStackTrace();
                     lock.lock();
-                    initState.set(ARedisCache.STATE_FAIL);
+                    listener.onResult(ARedisCache.STATE_FAIL);
                     condition.signalAll();
                     lock.unlock();
                 }
@@ -81,19 +83,21 @@ public class Native {
     /**
      * 使用native存储形式,fork进程写rdb
      */
-    public boolean nativeForkRDB(final String name) throws Exception {
+    public boolean nativeForkRDB(final String name, final int ptr) throws ARedisException {
         if (available) {
             available = false;
             try {
                 executorService.execute(new Runnable() {
                     @Override
                     public void run() {
-                        asyncDoForkTask(name);
+                        asyncDoForkTask(name, ptr);
                     }
                 });
             } catch (Throwable throwable) {
                 available = true;
-                throwable.printStackTrace();
+                ARedisException exception = new ARedisException("nativeForkRDB fail :" + name);
+                exception.initCause(throwable);
+                throw exception;
             }
             return true;
         } else {
@@ -102,12 +106,11 @@ public class Native {
         }
     }
 
-    private void asyncDoForkTask(String name) {
+    private void asyncDoForkTask(String name, int ptr) {
         try {
-            Thread.sleep(2000);
             if (lock.tryLock()) {
                 System.out.println("start fork:" + Thread.currentThread().getName() + "-" + name);
-                forkNative(name);
+                forkNative(name, ptr);
                 System.out.println("done:" + Thread.currentThread().getName() + "-" + name);
             }
         } catch (Exception e) {
@@ -115,7 +118,7 @@ public class Native {
         } finally {
             if (waitTask == true) {
                 waitTask = false;
-                asyncDoForkTask(name);
+                asyncDoForkTask(name, ptr);
             } else {
                 available = true;
             }
@@ -123,43 +126,58 @@ public class Native {
         }
     }
 
-    public boolean syncRDB(String name) throws Exception {
-        if (lock.tryLock(1000, TimeUnit.MILLISECONDS)) {
-            try {
-                syncRdb(name);
-                waitTask = false;
-            } catch (Throwable throwable) {
-                throwable.printStackTrace();
-                return false;
-            } finally {
-                lock.unlock();
+    public void syncRDB(String name, int ptr) throws ARedisException {
+        try {
+            if (lock.tryLock(1000, TimeUnit.MILLISECONDS)) {
+                try {
+                    syncRdb(name, ptr);
+                    waitTask = false;
+                } catch (Throwable throwable) {
+                    ARedisException exception = new ARedisException("syncRDB " + name + " fail");
+                    exception.initCause(throwable);
+                    throw exception;
+                } finally {
+                    lock.unlock();
+                }
+            } else {
+                throw new ARedisException("syncRDB " + name + " over time");
             }
-            return true;
-        } else {
-            return false;
+        } catch (InterruptedException e) {
+            ARedisException exception = new ARedisException("syncRDB " + name + " fail");
+            exception.initCause(e);
+            throw exception;
         }
+
     }
 
-    public boolean syncAOF(String name) throws Exception {
-        if (!available) {
-            return false;
-        }
-
+    public void syncAOF(String name, int ptr) throws ARedisException {
         try {
-            syncAof(name);
-        } catch (Throwable throwable) {
-            throwable.printStackTrace();
-            return false;
+            if (lock.tryLock(1000, TimeUnit.MILLISECONDS)) {
+                try {
+                    syncAof(name, ptr);
+                } catch (Throwable throwable) {
+                    ARedisException exception = new ARedisException("syncAOF " + name + " fail");
+                    exception.initCause(throwable);
+                    throw exception;
+                } finally {
+                    lock.unlock();
+                }
+            } else {
+                throw new ARedisException("syncAOF " + name + " over time");
+            }
+        } catch (InterruptedException e) {
+            ARedisException exception = new ARedisException("syncAOF " + name + " fail");
+            exception.initCause(e);
+            throw exception;
         }
-        return true;
     }
 
     public void appendStrictAOF(final String name, final String key, final NativeRecord record, final ReentrantLock lock, final Condition condition) {
-        available = false;
         executorService.execute(new Runnable() {
             @Override
             public void run() {
                 try {
+                    lock.lock();
                     if (record == null) {
                         deleteAof(name, key);
                     } else {
@@ -169,9 +187,7 @@ public class Native {
                     throwable.printStackTrace();
                 } finally {
                     try {
-                        lock.lock();
                         condition.signal();
-                        available = true;
                         lock.unlock();
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -189,10 +205,10 @@ public class Native {
         }
     }
 
-    public static synchronized NativeRecord setNative(String name, String key, Object value, long expire) throws Exception {
+    public static synchronized NativeRecord setNative(String name, int ptr, String key, Object value, long expire) throws ARedisException {
         byte type = AType.getType(value);
         byte[] values = AType.getTypeBytes(value);
-        set(name, key, type, values, expire);
+        set(name, ptr, key, type, values, expire);
         NativeRecord record = NativeRecord.acquire();
         record.type = type;
         record.value = values;
@@ -200,8 +216,8 @@ public class Native {
         return record;
     }
 
-    public static synchronized NativeRecord setRawNative(String name, String key, byte type, byte[] values, long expire) throws Exception {
-        set(name, key, type, values, expire);
+    public static synchronized NativeRecord setRawNative(String name, int ptr, String key, byte type, byte[] values, long expire) throws ARedisException {
+        set(name, ptr, key, type, values, expire);
         NativeRecord record = NativeRecord.acquire();
         record.type = type;
         record.value = values;
@@ -209,8 +225,7 @@ public class Native {
         return record;
     }
 
-
-    public static synchronized NativeRecord laddNative(String name, String key, Object value) throws Exception {
+    public static synchronized NativeRecord laddNative(String name, int ptr, String key, Object value) throws ARedisException {
         byte type = AType.getType(value);
         byte[] values = AType.getTypeBytes(value);
 //        byte[] len = Util.makeSingleLength(values);
@@ -219,13 +234,13 @@ public class Native {
 //        System.arraycopy(len, 0, wrappedValue, 1, len.length);
 //        System.arraycopy(values, 0, wrappedValue, 1 + len.length, values.length);
 
-        NativeRecord record = ladd(name, key, type, values);
+        NativeRecord record = ladd(name, ptr, key, type, values);
 
         return record;
     }
 
-    public static synchronized Object getNative(String name, String key) throws Exception {
-        NativeRecord record = get(name, key);
+    public static synchronized Object getNative(String name, int ptr, String key) throws ARedisException {
+        NativeRecord record = get(name, ptr, key);
 
         if (record != null) {
             Object object = AType.getValue(record.type, record.value, 0, record.value.length);
@@ -236,14 +251,14 @@ public class Native {
         return null;
     }
 
-    public static synchronized NativeRecord getRaw(String name, String key) throws Exception {
-        NativeRecord record = get(name, key);
+    public static synchronized NativeRecord getRaw(String name, int ptr, String key) throws ARedisException {
+        NativeRecord record = get(name, ptr, key);
 
         return record;
     }
 
-    public static void removeNative(String name, String key) {
-        remove(name, key);
+    public static void removeNative(String name, int ptr, String key) {
+        remove(name, ptr, key);
     }
 
 
@@ -259,18 +274,22 @@ public class Native {
 
     private static native void deleteAof(String name, String key);
 
-    private static native void syncAof(String name);
+    private static native void syncAof(String name, int ptr);
 
-    private static native void syncRdb(String name);
+    private static native void syncRdb(String name, int ptr);
 
-    private static native void set(String name, String key, byte type, byte[] value, long expire);
+    private static native void set(String name, int ptr, String key, byte type, byte[] value, long expire);
 
-    private static native NativeRecord ladd(String name, String key, byte type, byte[] value);
+    private static native NativeRecord ladd(String name, int ptr, String key, byte type, byte[] value);
 
-    private static native NativeRecord get(String name, String key);
+    private static native NativeRecord get(String name, int ptr, String key);
 
-    private static native void remove(String name, String key);
+    private static native void remove(String name, int ptr, String key);
 
-    private static native int forkNative(String cache);
+    private static native int forkNative(String cache, int ptr);
 
+
+    static interface NativeListener {
+        void onResult(int result);
+    }
 }

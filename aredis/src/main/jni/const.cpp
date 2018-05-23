@@ -9,3 +9,5 @@ int MAX_MEM_SIZE = 20 * 1024 * 1024;
 int AOF_SET = 1;
 int AOF_DELETE = 2;
 int AOF_LADD = 3;
+
+int RESULT_CONCURRENT = -2;

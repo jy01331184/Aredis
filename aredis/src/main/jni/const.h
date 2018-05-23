@@ -25,6 +25,8 @@ using namespace std;
 #ifndef V_TAG
 #define V_TAG
 
+
+
 struct Value {
     int length = 0;
     jlong expire;
@@ -38,6 +40,7 @@ struct Length {
     int length;
     jbyte *bytes;
 };
+extern int RESULT_CONCURRENT;
 extern int MAX_KV_PAIRS;
 extern int MAX_MEM_SIZE;
 extern pthread_mutex_t mutex_t;

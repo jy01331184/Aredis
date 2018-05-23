@@ -3,30 +3,25 @@ package aredis;
 import android.content.Context;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 import aredis.cfg.AredisConfig;
-import aredis.cfg.AredisDefaultConfig;
 import aredis.ext.ARedisException;
+import aredis.process.ProcessSupport;
 
 /**
  * Created by magic.yang
  * AREDIS IMPL
  */
 
-public class ARedisCache {
+class ARedisCache implements Aredis, ProcessSupport {
     static final int STATE_LOADING = 1, STATE_LOADED = 2, STATE_FAIL = -1, STATE_CONCURRENT = -2;
-
-    private static Map<String, ARedisCache> caches = new HashMap<>();
 
     private long last_rdb_save_time;
     private int max_io_wait_time = 1000;
@@ -37,12 +32,32 @@ public class ARedisCache {
     private boolean rdb = false;
     private boolean aof = false;
     private boolean strictMode = false;
-    private AtomicInteger initState = new AtomicInteger(0);
+    private volatile int initState = 0;
+    private int nativePtr;
     private String name;
     private Native mANative;
     private ReentrantLock lock = new ReentrantLock();
     private Condition initCondition = lock.newCondition();
 
+    private Native.NativeListener nativeListener = new Native.NativeListener() {
+        @Override
+        public void onResult(int result) {
+
+            switch (result) {
+                case STATE_CONCURRENT:
+                case STATE_FAIL:
+                case STATE_LOADING:
+                case STATE_LOADED:
+                    initState = result;
+                    break;
+                default:
+                    initState = STATE_LOADED;
+                    nativePtr = result;
+                    break;
+            }
+
+        }
+    };
 
     private ExecutorService executorService = new ThreadPoolExecutor(1, 1,
             60L, TimeUnit.SECONDS,
@@ -54,29 +69,7 @@ public class ARedisCache {
                 }
             });
 
-
-    public static synchronized ARedisCache create(Context context, String name) {
-
-        ARedisCache redis = caches.get(name);
-        if (redis == null) {
-            redis = new ARedisCache(context, name, new AredisDefaultConfig());
-            caches.put(name, redis);
-        }
-
-        return redis;
-    }
-
-    public static synchronized ARedisCache create(Context context, String name, AredisConfig config) {
-        ARedisCache redis = caches.get(name);
-        if (redis == null) {
-            redis = new ARedisCache(context, name, config);
-            caches.put(name, redis);
-        }
-
-        return redis;
-    }
-
-    private ARedisCache(Context context, String kvname, AredisConfig config) {
+    ARedisCache(Context context, String kvname, AredisConfig config) {
 
         rdb = config.getType() == AredisConfig.AredisType.RDB;
         aof = config.getType() == AredisConfig.AredisType.AOF;
@@ -89,18 +82,18 @@ public class ARedisCache {
         mANative = new Native(lock, executorService);
 
         if (aof) {
-            mANative.initReadAOF(name, initState, initCondition);
+            mANative.initReadAOF(name, nativeListener, initCondition);
         } else if (rdb) {
-            mANative.initReadRDB(name, initState, initCondition);
+            mANative.initReadRDB(name, nativeListener, initCondition);
         } else {
             throw new RuntimeException("mode must be least one of aof or rdb");
         }
     }
 
-    public synchronized void set(final String key, final Object data, long expire) throws Exception {
+    public synchronized void set(final String key, final Object data, long expire) throws ARedisException {
         checkInit();
 
-        NativeRecord record = Native.setNative(name, key, data, expire);
+        NativeRecord record = Native.setNative(name, nativePtr, key, data, expire);
         if (!persist) {
             NativeRecord.release(record);
             return;
@@ -115,7 +108,7 @@ public class ARedisCache {
         } else if (rdb) {
             rdb_change_count++;
             if (rdb_change_count % rdb_save_count == 0 || (last_rdb_save_time > 0 && last_rdb_save_time - System.currentTimeMillis() > rdb_save_time)) {
-                if (mANative.nativeForkRDB(name)) {
+                if (mANative.nativeForkRDB(name, nativePtr)) {
                     last_rdb_save_time = System.currentTimeMillis();
                 }
             }
@@ -123,9 +116,9 @@ public class ARedisCache {
         NativeRecord.release(record);
     }
 
-    public synchronized void setRaw(String key, byte type, byte[] data, long expire) throws Exception {
+    public synchronized void setRaw(String key, byte type, byte[] data, long expire) throws ARedisException {
         checkInit();
-        NativeRecord record = Native.setRawNative(name, key, type, data, expire);
+        NativeRecord record = Native.setRawNative(name, nativePtr, key, type, data, expire);
         if (aof) {
             if (strictMode) {
                 strictAof(key, record, max_io_wait_time);
@@ -135,7 +128,7 @@ public class ARedisCache {
         } else if (rdb) {
             rdb_change_count++;
             if (rdb_change_count % rdb_save_count == 0 || (last_rdb_save_time > 0 && last_rdb_save_time - System.currentTimeMillis() > rdb_save_time)) {
-                if (mANative.nativeForkRDB(name)) {
+                if (mANative.nativeForkRDB(name, nativePtr)) {
                     last_rdb_save_time = System.currentTimeMillis();
                 }
             }
@@ -143,10 +136,10 @@ public class ARedisCache {
         NativeRecord.release(record);
     }
 
-    public synchronized void ladd(final String key, final Object data) throws Exception {
+    public synchronized void ladd(final String key, final Object data) throws ARedisException {
         checkInit();
 
-        NativeRecord record = Native.laddNative(name, key, data);
+        NativeRecord record = Native.laddNative(name, nativePtr, key, data);
         if (!persist) {
             NativeRecord.release(record);
             return;
@@ -161,7 +154,7 @@ public class ARedisCache {
         } else if (rdb) {
             rdb_change_count++;
             if (rdb_change_count % rdb_save_count == 0 || (last_rdb_save_time > 0 && last_rdb_save_time - System.currentTimeMillis() > rdb_save_time)) {
-                if (mANative.nativeForkRDB(name)) {
+                if (mANative.nativeForkRDB(name, nativePtr)) {
                     last_rdb_save_time = System.currentTimeMillis();
                 }
             }
@@ -169,19 +162,19 @@ public class ARedisCache {
         NativeRecord.release(record);
     }
 
-    public synchronized Object get(final String key) throws Exception {
+    public synchronized Object get(final String key) throws ARedisException {
         checkInit();
-        return Native.getNative(name, key);
+        return Native.getNative(name, nativePtr, key);
     }
 
-    public synchronized NativeRecord getRaw(String key) throws Exception {
+    public synchronized NativeRecord getRaw(String key) throws ARedisException {
         checkInit();
-        return Native.getRaw(name, key);
+        return Native.getRaw(name, nativePtr, key);
     }
 
-    public synchronized void delete(String key) throws Exception {
+    public synchronized void delete(String key) throws ARedisException {
         checkInit();
-        Native.removeNative(name, key);
+        Native.removeNative(name, nativePtr, key);
 
         if (!persist) {
             return;
@@ -196,63 +189,77 @@ public class ARedisCache {
         } else if (rdb) {
             rdb_change_count++;
             if (rdb_change_count % rdb_save_count == 0 || (last_rdb_save_time > 0 && last_rdb_save_time - System.currentTimeMillis() > rdb_save_time)) {
-                if (mANative.nativeForkRDB(name)) {
+                if (mANative.nativeForkRDB(name, nativePtr)) {
                     last_rdb_save_time = System.currentTimeMillis();
                 }
             }
         }
     }
 
-    public synchronized void sync() throws Exception {
+    public synchronized void sync() throws ARedisException {
         checkInit();
         if (!persist) {
             return;
         }
         if (aof) {
-            mANative.syncAOF(name);
+            mANative.syncAOF(name, nativePtr);
         } else if (rdb) {
-            mANative.syncRDB(name);
+            mANative.syncRDB(name, nativePtr);
         }
     }
 
-    private void strictAof(String key, NativeRecord record, int max_io_wait_time) throws Exception {
+    private void strictAof(String key, NativeRecord record, int max_io_wait_time) throws ARedisException {
         try {
             lock.lock();
             Condition aofWriteCondition = lock.newCondition();
             mANative.appendStrictAOF(name, key, record, lock, aofWriteCondition);
             boolean success = aofWriteCondition.await(max_io_wait_time, TimeUnit.MILLISECONDS);
             if (!success) {
-                System.err.println("write aof overtime :" + name);
+                throw new ARedisException("write strict aof overtime :" + name + " with key:" + key);
             }
-        } catch (Exception e) {
-            throw e;
-        } finally {
-            lock.unlock();
+        } catch (InterruptedException e) {
+            ARedisException exception = new ARedisException("write strict aof fail :" + name + " with key:" + key);
+            exception.initCause(e);
+            throw exception;
         }
     }
 
-    private void checkInit() throws Exception {
-        if (initState.get() == STATE_LOADED) {
+    private void checkInit() throws ARedisException {
+        if (initState == STATE_LOADED) {
             return;
-        } else if (initState.get() == STATE_FAIL) {
+        } else if (initState == STATE_FAIL) {
             throw new ARedisException("aredis init fail :" + name);
-        } else if (initState.get() == STATE_LOADING) {
+        } else if (initState == STATE_LOADING) {
             lock.lock();
-            if (initState.get() == STATE_LOADING) {
-                boolean overtime = initCondition.await(max_io_wait_time, TimeUnit.MILLISECONDS);
-                if (overtime && initState.get() != STATE_LOADED) {
+            if (initState == STATE_LOADING) {
+                boolean overtime;
+                try {
+                    overtime = !initCondition.await(max_io_wait_time, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    ARedisException exception = new ARedisException("aredis init interrupt");
+                    exception.initCause(e);
+                    lock.unlock();
+                    throw exception;
+                }
+
+                if (overtime && initState != STATE_LOADED) {
                     lock.unlock();
                     throw new ARedisException("aredis init over time :" + name);
-                } else if (initState.get() != STATE_LOADED) {
+                } else if (initState == STATE_CONCURRENT) {
+                    throw new ARedisException("aredis not support more than one process :" + name);
+                } else if (initState != STATE_LOADED) {
                     lock.unlock();
                     throw new ARedisException("aredis init fail :" + name);
                 }
-            } else if (initState.get() == STATE_FAIL) {
+            } else if (initState == STATE_FAIL) {
                 lock.unlock();
                 throw new ARedisException("aredis init fail :" + name);
+            } else if (initState == STATE_CONCURRENT) {
+                lock.unlock();
+                throw new ARedisException("aredis not support more than one process :" + name);
             }
             lock.unlock();
-        } else if (initState.get() == STATE_CONCURRENT) {
+        } else if (initState == STATE_CONCURRENT) {
             throw new ARedisException("aredis not support more than one process :" + name);
         }
     }

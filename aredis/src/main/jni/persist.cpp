@@ -9,7 +9,6 @@ jfieldID valueField;
 jfieldID expireField;
 
 using namespace std;
-hash_map<string, lru *> *dicts;
 
 
 void initPersist(JNIEnv *env) {
@@ -21,52 +20,49 @@ void initPersist(JNIEnv *env) {
         valueField = env->GetFieldID(recordCls, "value", "[B");
         expireField = env->GetFieldID(recordCls, "expire", "J");
         aqucireMethod = env->GetStaticMethodID(recordCls, "acquire", "()Laredis/NativeRecord;");
-
-        dicts = new hash_map<string, lru *>();
     }
 }
 
-void Java_aredis_Native_set(JNIEnv *env, jclass cls, jstring cacheName, jstring key, jbyte type,
+void Java_aredis_Native_set(JNIEnv *env, jclass cls, jstring cacheName, jint ptr, jstring key,
+                            jbyte type,
                             jbyteArray value, jlong expire) {
 
-    char c_type = type;
-    int length = env->GetArrayLength(value);
-    jbyte *jbarray = (jbyte *) malloc(length * sizeof(jbyte));
+    lru *instance = reinterpret_cast<lru *>(ptr);
 
-    env->GetByteArrayRegion(value, 0, length, jbarray);
-    Value *val = new Value();
-
-    val->length = length;
-    val->type = c_type;
-    val->val = jbarray;
-    val->expire = expire;
-
-    const char *dictStr = env->GetStringUTFChars(cacheName, 0);
-    string dictKey(dictStr);
-
-    lru *instance = dicts->operator[](dictKey);
     if (instance) {
+
+        char c_type = type;
+        int length = env->GetArrayLength(value);
+        jbyte *jbarray = (jbyte *) malloc(length * sizeof(jbyte));
+
+        env->GetByteArrayRegion(value, 0, length, jbarray);
+        Value *val = new Value();
+
+        val->length = length;
+        val->type = c_type;
+        val->val = jbarray;
+        val->expire = expire;
+
         const char *str = env->GetStringUTFChars(key, 0);
         string mapKey(str);
         pthread_mutex_lock(&mutex_t);
         instance->put(mapKey, val);
         pthread_mutex_unlock(&mutex_t);
         env->ReleaseStringUTFChars(key, str);
-    } else {
-        LOGD("SET NATIVE CACHE NULL: %s %p", dictStr, instance);
-    }
-    env->ReleaseStringUTFChars(cacheName, dictStr);
 
-    //LOGD("SET NATIVE CACHE : %s %p", dictStr,instance);
+    } else {
+        LOGD("SET NATIVE CACHE NULL: %p", instance);
+    }
+
 }
 
-jobject Java_aredis_Native_ladd(JNIEnv *env, jclass cls, jstring cacheName, jstring key, jbyte type,
+jobject Java_aredis_Native_ladd(JNIEnv *env, jclass cls, jstring cacheName, jint ptr, jstring key,
+                                jbyte type,
                                 jbyteArray value) {
-    const char *dictStr = env->GetStringUTFChars(cacheName, 0);
-    string dictKey(dictStr);
+
+    lru *instance = reinterpret_cast<lru *>(ptr);
     jobject result;
-    lru *instance = dicts->operator[](dictKey);
-    //LOGD("GET NATIVE CACHE : %s %p %p", dictStr,instance,&dicts);
+
     if (instance) {
         const char *str = env->GetStringUTFChars(key, 0);
         string mapKey(str);
@@ -85,31 +81,16 @@ jobject Java_aredis_Native_ladd(JNIEnv *env, jclass cls, jstring cacheName, jstr
         pthread_mutex_unlock(&mutex_t);
         env->ReleaseStringUTFChars(key, str);
     } else {
-        LOGD("SET NATIVE CACHE NULL: %s %p", dictStr, instance);
+        LOGD("SET NATIVE CACHE NULL:  %p", instance);
     }
-    env->ReleaseStringUTFChars(cacheName, dictStr);
 
     return result;
-    //LOGD("SET NATIVE CACHE : %s %p", dictStr,instance);
 }
 
+jobject Java_aredis_Native_get(JNIEnv *env, jclass cls, jstring cacheName, jint ptr, jstring key) {
 
-int recurse_madness(int level) {
-    static int var[] = {1, 2};
-    if (level > 2000) {
-        return 1 + level;
-    } else {
-        return recurse_madness(level + 1) * var[level];
-    }
-}
+    lru *instance = reinterpret_cast<lru *>(ptr);
 
-jobject Java_aredis_Native_get(JNIEnv *env, jclass cls, jstring cacheName, jstring key) {
-
-    const char *dictStr = env->GetStringUTFChars(cacheName, 0);
-    string dictKey(dictStr);
-
-    lru *instance = dicts->operator[](dictKey);
-    //LOGD("GET NATIVE CACHE : %s %p %p", dictStr,instance,&dicts);
     if (instance) {
         const char *str = env->GetStringUTFChars(key, 0);
         string mapKey(str);
@@ -128,16 +109,15 @@ jobject Java_aredis_Native_get(JNIEnv *env, jclass cls, jstring cacheName, jstri
         }
         env->ReleaseStringUTFChars(key, str);
     }
-    env->ReleaseStringUTFChars(cacheName, dictStr);
 
     return NULL;
 }
 
 JNIEXPORT void JNICALL Java_aredis_Native_remove(JNIEnv *env, jclass cls, jstring cacheName,
+                                                 jint ptr,
                                                  jstring key) {
-    const char *dictStr = env->GetStringUTFChars(cacheName, 0);
-    string dictKey(dictStr);
-    lru *instance = dicts->operator[](dictKey);
+
+    lru *instance = reinterpret_cast<lru *>(ptr);
     if (instance) {
         const char *str = env->GetStringUTFChars(key, 0);
         string mapKey(str);
@@ -146,26 +126,4 @@ JNIEXPORT void JNICALL Java_aredis_Native_remove(JNIEnv *env, jclass cls, jstrin
         pthread_mutex_unlock(&mutex_t);
         env->ReleaseStringUTFChars(key, str);
     }
-
-    env->ReleaseStringUTFChars(cacheName, dictStr);
-}
-
-lru *getCache(string cacheName) {
-    return dicts->operator[](cacheName);
-}
-
-
-void init(const char *cacheName, lru *l) {
-    string dictKey(cacheName);
-
-    if (dicts->count(dictKey) > 0) {
-        lru *old = dicts->operator[](dictKey);
-        dicts->erase(dictKey);
-        LOGD("ALREADY HAVE CACHE %s %d ", cacheName, old->size());
-        delete old;
-    }
-
-    dicts->operator[](dictKey) = l;
-    LOGD("INIT NATIVE CACHE : %s size : %d ", cacheName, l->size());
-
 }

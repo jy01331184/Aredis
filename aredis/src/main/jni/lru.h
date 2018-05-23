@@ -57,6 +57,10 @@ public:
 
     Value *get(string key) {
 
+        if (hasTempDelete(key) > 0) {
+            return NULL;
+        }
+
         Value *value = tempGet(key);
         if (value) {
             return value;
@@ -181,15 +185,6 @@ private:
         }
     }
 
-    int tempLadd(string key,Value *value){
-        if (state == STATE_FORKING) {
-
-            return 1;
-        }
-        recover();
-        return 0;
-    }
-
     int tempSet(string key, Value *value) {
         if (state == STATE_FORKING) {
             if (tempPut->count(key) > 0) {
@@ -218,6 +213,16 @@ private:
         return 0;
     }
 
+    int hasTempDelete(string key) {
+        if (state == STATE_FORKING) {
+
+            int count = std::count(tempDel->begin(), tempDel->end(), key);
+
+            return count;
+        }
+        return 0;
+    }
+
     Value *tempGet(string key) {
         if (state == STATE_FORKING) {
             if (tempPut->count(key) > 0) {
@@ -235,7 +240,6 @@ private:
                     free(value->val);
                     delete value;
                 }
-
             }
         } else {
             recover();

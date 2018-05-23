@@ -5,7 +5,7 @@
                  android:label="@string/app_name"
                  android:supportsRtl="true"
     >
-        <service android:name="aredis.process.MultiProcessService"></service>
+        <service android:name="aredis.MultiProcessService"></service>
     </application>
 
 </manifest>

@@ -55,18 +55,23 @@ void Java_aredis_Native_deleteAof(JNIEnv *env, jclass cls, jstring cacheName, js
 jint Java_aredis_Native_readAof(JNIEnv *env, jclass cls, jstring cacheName) {
     const char *str = env->GetStringUTFChars(cacheName, 0);
     lru *l = readAof(env, str);
+
+    if(l){
+        LOGD("INIT NATIVE CACHE : %s size : %d ", str, l->size());
+    }
     env->ReleaseStringUTFChars(cacheName, str);
     if(!l){
-        return -2;
+        return RESULT_CONCURRENT;
     }
-    init(str, l);
-    return 2;
+
+    int ptr = (int) l;
+
+    return ptr;
 }
 
-void Java_aredis_Native_syncAof(JNIEnv *env, jclass cls, jstring cacheName) {
+void Java_aredis_Native_syncAof(JNIEnv *env, jclass cls, jstring cacheName,jint ptr) {
     const char *dictStr = env->GetStringUTFChars(cacheName, 0);
-    string dictKey(dictStr);
-    lru *instance = getCache(dictKey);
+    lru *instance = reinterpret_cast<lru *>(ptr);
     syncAof(env, dictStr, instance->getCache());
     env->ReleaseStringUTFChars(cacheName, dictStr);
 }
@@ -74,23 +79,27 @@ void Java_aredis_Native_syncAof(JNIEnv *env, jclass cls, jstring cacheName) {
 jint Java_aredis_Native_readRdb(JNIEnv *env, jclass cls, jstring cacheName) {
     const char *str = env->GetStringUTFChars(cacheName, 0);
     lru *l = readRdb(env, str);
+    if(l){
+        LOGD("INIT NATIVE CACHE : %s size : %d ", str, l->size());
+    }
     env->ReleaseStringUTFChars(cacheName, str);
     if(!l){
-        return -2;
+        return RESULT_CONCURRENT;
     }
-    init(str, l);
-    return 2;
+
+    int ptr = (int) l;
+
+    return ptr;
 }
 
-void Java_aredis_Native_syncRdb(JNIEnv *env, jclass cls, jstring cacheName) {
+void Java_aredis_Native_syncRdb(JNIEnv *env, jclass cls, jstring cacheName,jint ptr) {
     const char *dictStr = env->GetStringUTFChars(cacheName, 0);
-    string dictKey(dictStr);
-    lru *instance = getCache(dictKey);
+    lru *instance = reinterpret_cast<lru *>(ptr);
     syncRdb(env, dictStr, instance->getCache());
     env->ReleaseStringUTFChars(cacheName, dictStr);
 }
 
-JNIEXPORT jint JNICALL Java_aredis_Native_forkNative(JNIEnv *env, jclass cls, jstring cacheName) {
+JNIEXPORT jint JNICALL Java_aredis_Native_forkNative(JNIEnv *env, jclass cls, jstring cacheName,jint ptr) {
     int fpid;
     fpid = vfork();
 
@@ -100,9 +109,8 @@ JNIEXPORT jint JNICALL Java_aredis_Native_forkNative(JNIEnv *env, jclass cls, js
         //pthread_t vpid;
         //pthread_create(&vpid, NULL, thread_func, NULL);
         const char *dictStr = env->GetStringUTFChars(cacheName, 0);
-        string dictKey(dictStr);
 
-        lru *instance = getCache(dictKey);
+        lru *instance = reinterpret_cast<lru *>(ptr);
         if (instance) {
             pthread_mutex_lock(&mutex_t);
             instance->startFork();
@@ -111,7 +119,7 @@ JNIEXPORT jint JNICALL Java_aredis_Native_forkNative(JNIEnv *env, jclass cls, js
             syncRdb(env, dictStr, instance->getCache());
 
             pthread_mutex_lock(&mutex_t);
-            //instance->endFork();
+            instance->endFork();
             pthread_mutex_unlock(&mutex_t);
             if (env->ExceptionCheck()) {
                 env->ExceptionDescribe();
@@ -144,6 +152,5 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
 }
 
 JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
-
     LOGD("UNLOAD:ARedis.cpp");
 }

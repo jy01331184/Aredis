@@ -2,6 +2,7 @@
 #include "const.h"
 #include "lru.h"
 #include <sys/file.h>
+#include <sys/stat.h>
 
 const char *HEADER = "AREDIS";
 signed int AREDIS_VERSION = 1;
@@ -467,7 +468,7 @@ lru *readRdb(JNIEnv *env, const char *cacheName) {
     char *fileName = strcat(prefix, RDB_POSTFIX);
 
     if (access(fileName, 0)) {
-        int fd = open(fileName, O_CREAT);
+        int fd = open(fileName, O_CREAT, S_IRUSR | S_IWUSR);
         int result = flock(fd, LOCK_EX | LOCK_NB);
         if (result < 0) {
             return NULL;
@@ -570,7 +571,7 @@ lru *readRdb(JNIEnv *env, const char *cacheName) {
             LOGE("OVER MAX KV PAIRS IN READ RDB %s", cacheName);
         }
     } else {
-        LOGD("%s not a native rdb file", fileName);
+        LOGE("%s not a native rdb file", fileName);
     }
 
     fclose(fileHandle);
@@ -585,8 +586,8 @@ lru *readAof(JNIEnv *env, const char *cacheName) {
     lru *l = new lru();
     char *fileName = strcat(prefix, AOF_POSTFIX);
 
-    if (access(fileName, 0)) {
-        int fd = open(fileName, O_CREAT);
+    if (access(fileName, F_OK)) {
+        int fd = open(fileName, O_CREAT, S_IRUSR | S_IWUSR);
         int result = flock(fd, LOCK_EX | LOCK_NB);
         if (result < 0) {
             return NULL;
@@ -595,7 +596,7 @@ lru *readAof(JNIEnv *env, const char *cacheName) {
         return l;
     }
 
-    FILE *fileHandle = fopen(fileName, "r");
+    FILE *fileHandle = fopen(fileName, "rw");
 
     if (!fileHandle) {
         LOGE("error open %s", fileName);

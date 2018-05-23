@@ -22,17 +22,15 @@ extern jfieldID expireField;
 extern "C" {
 #endif
 
-JNIEXPORT void JNICALL Java_aredis_Native_set(JNIEnv *, jclass, jstring, jstring, jbyte, jbyteArray, jlong);
+JNIEXPORT void JNICALL Java_aredis_Native_set(JNIEnv *, jclass, jstring,jint , jstring, jbyte, jbyteArray, jlong);
 
-JNIEXPORT jobject JNICALL Java_aredis_Native_ladd(JNIEnv *, jclass, jstring, jstring,jbyte,jbyteArray);
+JNIEXPORT jobject JNICALL Java_aredis_Native_ladd(JNIEnv *, jclass, jstring,jint, jstring,jbyte,jbyteArray);
 
-JNIEXPORT jobject JNICALL Java_aredis_Native_get(JNIEnv *, jclass, jstring, jstring);
+JNIEXPORT jobject JNICALL Java_aredis_Native_get(JNIEnv *, jclass, jstring,jint , jstring);
 
-JNIEXPORT void JNICALL Java_aredis_Native_remove(JNIEnv *, jclass, jstring, jstring);
+JNIEXPORT void JNICALL Java_aredis_Native_remove(JNIEnv *, jclass, jstring,jint,jstring);
 
 void initPersist(JNIEnv *env);
-
-lru *getCache(string cacheName);
 
 void init(const char * cacheName,lru* l);
 #ifdef __cplusplus

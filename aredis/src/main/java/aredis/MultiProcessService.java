@@ -1,28 +1,33 @@
-package aredis.process;
+package aredis;
 
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
+import android.os.Process;
 import android.os.RemoteException;
 
-import aredis.ARedisCache;
-import aredis.NativeRecord;
+import aredis.cfg.AredisConfig;
+import aredis.process.MultiProcessHandle;
+import aredis.process.ProcessSupport;
 
 /**
  * Created by tianyang on 18/5/11.
  */
 public class MultiProcessService extends Service {
 
+    public static final String KEY_CONFIG = ":config";
 
-    public MultiProcessService() {
-
-    }
+    private AredisConfig config;
 
     MultiProcessHandle.Stub stub = new MultiProcessHandle.Stub() {
         @Override
         public NativeRecord get(String node, String key) throws RemoteException {
 
-            ARedisCache aredis = ARedisCache.create(MultiProcessService.this, node);
+            ProcessSupport aredis = AredisFactory.getProcessSupport(MultiProcessService.this, node, config);
+
+            if (aredis == null) {
+                throw new IllegalStateException("no aredis instance in Process:" + Process.myPid() + " with name:" + node);
+            }
 
             try {
                 NativeRecord record = aredis.getRaw(key);
@@ -37,7 +42,11 @@ public class MultiProcessService extends Service {
 
         @Override
         public void set(String node, String key, byte type, byte[] data, long expire) throws RemoteException {
-            ARedisCache aredis = ARedisCache.create(MultiProcessService.this, node);
+            ProcessSupport aredis = AredisFactory.getProcessSupport(MultiProcessService.this, node, config);
+
+            if (aredis == null) {
+                throw new IllegalStateException("no aredis instance in Process:" + Process.myPid() + " with name:" + node);
+            }
 
             try {
                 aredis.setRaw(key, type, data, expire);
@@ -52,6 +61,9 @@ public class MultiProcessService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
+
+        config = (AredisConfig) intent.getSerializableExtra(KEY_CONFIG);
+
         return stub;
     }
 

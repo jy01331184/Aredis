@@ -1,9 +1,11 @@
 package aredis.cfg;
 
+import java.io.Serializable;
+
 /**
  * Created by tianyang on 18/1/30.
  */
-public interface AredisConfig {
+public interface AredisConfig extends Serializable{
 
     /**
      * return 使用rdb 或aof 模式,默认是rdb模式

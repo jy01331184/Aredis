@@ -12,13 +12,13 @@ int MAX_WAIT_TIME = 3;
 extern "C" {
 #endif
 
-JNIEXPORT jint JNICALL Java_aredis_Native_forkNative(JNIEnv *, jclass, jstring);
+JNIEXPORT jint JNICALL Java_aredis_Native_forkNative(JNIEnv *, jclass, jstring,jint);
 
-JNIEXPORT void JNICALL Java_aredis_Native_syncRdb(JNIEnv *, jclass, jstring);
+JNIEXPORT void JNICALL Java_aredis_Native_syncRdb(JNIEnv *, jclass, jstring,jint);
 
 JNIEXPORT jint JNICALL Java_aredis_Native_readRdb(JNIEnv *, jclass, jstring);
 
-JNIEXPORT void JNICALL Java_aredis_Native_syncAof(JNIEnv *, jclass, jstring);
+JNIEXPORT void JNICALL Java_aredis_Native_syncAof(JNIEnv *, jclass, jstring,jint);
 
 JNIEXPORT jint JNICALL Java_aredis_Native_readAof(JNIEnv *, jclass, jstring);
 
