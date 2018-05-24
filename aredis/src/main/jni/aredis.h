@@ -12,19 +12,19 @@ int MAX_WAIT_TIME = 3;
 extern "C" {
 #endif
 
-JNIEXPORT jint JNICALL Java_aredis_Native_forkNative(JNIEnv *, jclass, jstring,jint);
+JNIEXPORT jint JNICALL Java_aredis_Native_forkNative(JNIEnv *, jobject , jstring,jint);
 
-JNIEXPORT void JNICALL Java_aredis_Native_syncRdb(JNIEnv *, jclass, jstring,jint);
+JNIEXPORT void JNICALL Java_aredis_Native_syncRdb(JNIEnv *, jobject, jstring,jint);
 
-JNIEXPORT jint JNICALL Java_aredis_Native_readRdb(JNIEnv *, jclass, jstring);
+JNIEXPORT jint JNICALL Java_aredis_Native_readRdb(JNIEnv *, jobject , jstring);
 
-JNIEXPORT void JNICALL Java_aredis_Native_syncAof(JNIEnv *, jclass, jstring,jint);
+JNIEXPORT void JNICALL Java_aredis_Native_syncAof(JNIEnv *, jobject , jstring,jint);
 
-JNIEXPORT jint JNICALL Java_aredis_Native_readAof(JNIEnv *, jclass, jstring);
+JNIEXPORT jint JNICALL Java_aredis_Native_readAof(JNIEnv *, jobject , jstring);
 
-JNIEXPORT void JNICALL Java_aredis_Native_writeAof(JNIEnv *, jclass, jstring, jstring, jobject);
+JNIEXPORT void JNICALL Java_aredis_Native_writeAof(JNIEnv *, jobject, jstring, jstring, jobject);
 
-JNIEXPORT void JNICALL Java_aredis_Native_deleteAof(JNIEnv *, jclass, jstring, jstring);
+JNIEXPORT void JNICALL Java_aredis_Native_deleteAof(JNIEnv *, jobject , jstring, jstring);
 
 #ifdef __cplusplus
 }

@@ -205,7 +205,7 @@ public class Native {
         }
     }
 
-    public static synchronized NativeRecord setNative(String name, int ptr, String key, Object value, long expire) throws ARedisException {
+    public NativeRecord setNative(String name, int ptr, String key, Object value, long expire) throws ARedisException {
         byte type = AType.getType(value);
         byte[] values = AType.getTypeBytes(value);
         set(name, ptr, key, type, values, expire);
@@ -216,7 +216,7 @@ public class Native {
         return record;
     }
 
-    public static synchronized NativeRecord setRawNative(String name, int ptr, String key, byte type, byte[] values, long expire) throws ARedisException {
+    public NativeRecord setRawNative(String name, int ptr, String key, byte type, byte[] values, long expire) throws ARedisException {
         set(name, ptr, key, type, values, expire);
         NativeRecord record = NativeRecord.acquire();
         record.type = type;
@@ -225,7 +225,7 @@ public class Native {
         return record;
     }
 
-    public static synchronized NativeRecord laddNative(String name, int ptr, String key, Object value) throws ARedisException {
+    public NativeRecord laddNative(String name, int ptr, String key, Object value) throws ARedisException {
         byte type = AType.getType(value);
         byte[] values = AType.getTypeBytes(value);
 //        byte[] len = Util.makeSingleLength(values);
@@ -239,7 +239,7 @@ public class Native {
         return record;
     }
 
-    public static synchronized Object getNative(String name, int ptr, String key) throws ARedisException {
+    public Object getNative(String name, int ptr, String key) throws ARedisException {
         NativeRecord record = get(name, ptr, key);
 
         if (record != null) {
@@ -251,13 +251,13 @@ public class Native {
         return null;
     }
 
-    public static synchronized NativeRecord getRaw(String name, int ptr, String key) throws ARedisException {
+    public NativeRecord getRaw(String name, int ptr, String key) throws ARedisException {
         NativeRecord record = get(name, ptr, key);
 
         return record;
     }
 
-    public static void removeNative(String name, int ptr, String key) {
+    public void removeNative(String name, int ptr, String key) {
         remove(name, ptr, key);
     }
 
@@ -270,23 +270,23 @@ public class Native {
 
     private native int readRdb(String name);
 
-    private static native void writeAof(String name, String key, NativeRecord record);
+    private native void writeAof(String name, String key, NativeRecord record);
 
-    private static native void deleteAof(String name, String key);
+    private native void deleteAof(String name, String key);
 
-    private static native void syncAof(String name, int ptr);
+    private native void syncAof(String name, int ptr);
 
-    private static native void syncRdb(String name, int ptr);
+    private native void syncRdb(String name, int ptr);
 
-    private static native void set(String name, int ptr, String key, byte type, byte[] value, long expire);
+    private native void set(String name, int ptr, String key, byte type, byte[] value, long expire);
 
-    private static native NativeRecord ladd(String name, int ptr, String key, byte type, byte[] value);
+    private native NativeRecord ladd(String name, int ptr, String key, byte type, byte[] value);
 
-    private static native NativeRecord get(String name, int ptr, String key);
+    private native NativeRecord get(String name, int ptr, String key);
 
-    private static native void remove(String name, int ptr, String key);
+    private native void remove(String name, int ptr, String key);
 
-    private static native int forkNative(String cache, int ptr);
+    private native int forkNative(String cache, int ptr);
 
 
     static interface NativeListener {

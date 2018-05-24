@@ -23,7 +23,7 @@ void initPersist(JNIEnv *env) {
     }
 }
 
-void Java_aredis_Native_set(JNIEnv *env, jclass cls, jstring cacheName, jint ptr, jstring key,
+void Java_aredis_Native_set(JNIEnv *env, jobject ins, jstring cacheName, jint ptr, jstring key,
                             jbyte type,
                             jbyteArray value, jlong expire) {
 
@@ -56,7 +56,7 @@ void Java_aredis_Native_set(JNIEnv *env, jclass cls, jstring cacheName, jint ptr
 
 }
 
-jobject Java_aredis_Native_ladd(JNIEnv *env, jclass cls, jstring cacheName, jint ptr, jstring key,
+jobject Java_aredis_Native_ladd(JNIEnv *env, jobject ins, jstring cacheName, jint ptr, jstring key,
                                 jbyte type,
                                 jbyteArray value) {
 
@@ -87,7 +87,7 @@ jobject Java_aredis_Native_ladd(JNIEnv *env, jclass cls, jstring cacheName, jint
     return result;
 }
 
-jobject Java_aredis_Native_get(JNIEnv *env, jclass cls, jstring cacheName, jint ptr, jstring key) {
+jobject Java_aredis_Native_get(JNIEnv *env, jobject ins, jstring cacheName, jint ptr, jstring key) {
 
     lru *instance = reinterpret_cast<lru *>(ptr);
 
@@ -113,7 +113,7 @@ jobject Java_aredis_Native_get(JNIEnv *env, jclass cls, jstring cacheName, jint 
     return NULL;
 }
 
-JNIEXPORT void JNICALL Java_aredis_Native_remove(JNIEnv *env, jclass cls, jstring cacheName,
+JNIEXPORT void JNICALL Java_aredis_Native_remove(JNIEnv *env, jobject ins, jstring cacheName,
                                                  jint ptr,
                                                  jstring key) {
 

@@ -4,13 +4,13 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 
-const char *HEADER = "AREDIS";
 signed int AREDIS_VERSION = 1;
-char *EOF_STR = "AREDIS_EOF";
-char *RDB_BAK = ".rdb.bak";
-char *RDB_POSTFIX = ".rdb";
-char *AOF_BAK = ".aof.bak";
-char *AOF_POSTFIX = ".aof";
+const char *HEADER = "AREDIS";
+const char *EOF_STR = "AREDIS_EOF";
+const char *RDB_BAK = ".rdb.bak";
+const char *RDB_POSTFIX = ".rdb";
+const char *AOF_BAK = ".aof.bak";
+const char *AOF_POSTFIX = ".aof";
 
 using namespace std;
 
@@ -428,7 +428,6 @@ void syncAof(JNIEnv *env, const char *cacheName, hash_map<string, Value *> *temp
     }
 
     vector <jbyte> *vec = new vector<jbyte>();
-    jbyte putType = 1;
 
     hash_map<string, Value *>::iterator iter;
     for (iter = temp->begin(); iter != temp->end(); iter++) {
@@ -645,8 +644,7 @@ lru *readAof(JNIEnv *env, const char *cacheName) {
                     val->expire = expire;
 
                     l->put(string(key), val);
-//                    free(values);
-//                    delete val;
+
                     free(key);
                 } else {
                     LOGE("ERR IN READ AOF %s OVER VALUELENGTH: %d with key: %s", cacheName,

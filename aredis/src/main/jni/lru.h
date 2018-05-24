@@ -160,7 +160,7 @@ private:
     Value *head, *tail;
     hash_map<string, Value *> *cache;
     hash_map<string, Value *> *tempPut;
-    list <string> *tempDel;
+    list<string> *tempDel;
     int memSize;
 
     void recover() {
@@ -268,7 +268,7 @@ private:
         //cache->insert(pair<string, Value *>(key,value));
         cache->operator[](key) = value;
 
-        while (shouldTrim && (memSize > MAX_MEM_SIZE && size() > 0) || size() > MAX_KV_PAIRS) {
+        while (shouldTrim && ((memSize > MAX_MEM_SIZE && size() > 0) || size() > MAX_KV_PAIRS)) {
             trim();
         }
     }

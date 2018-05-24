@@ -93,7 +93,7 @@ class ARedisCache implements Aredis, ProcessSupport {
     public synchronized void set(final String key, final Object data, long expire) throws ARedisException {
         checkInit();
 
-        NativeRecord record = Native.setNative(name, nativePtr, key, data, expire);
+        NativeRecord record = mANative.setNative(name, nativePtr, key, data, expire);
         if (!persist) {
             NativeRecord.release(record);
             return;
@@ -118,7 +118,7 @@ class ARedisCache implements Aredis, ProcessSupport {
 
     public synchronized void setRaw(String key, byte type, byte[] data, long expire) throws ARedisException {
         checkInit();
-        NativeRecord record = Native.setRawNative(name, nativePtr, key, type, data, expire);
+        NativeRecord record = mANative.setRawNative(name, nativePtr, key, type, data, expire);
         if (aof) {
             if (strictMode) {
                 strictAof(key, record, max_io_wait_time);
@@ -139,7 +139,7 @@ class ARedisCache implements Aredis, ProcessSupport {
     public synchronized void ladd(final String key, final Object data) throws ARedisException {
         checkInit();
 
-        NativeRecord record = Native.laddNative(name, nativePtr, key, data);
+        NativeRecord record = mANative.laddNative(name, nativePtr, key, data);
         if (!persist) {
             NativeRecord.release(record);
             return;
@@ -164,17 +164,17 @@ class ARedisCache implements Aredis, ProcessSupport {
 
     public synchronized Object get(final String key) throws ARedisException {
         checkInit();
-        return Native.getNative(name, nativePtr, key);
+        return mANative.getNative(name, nativePtr, key);
     }
 
     public synchronized NativeRecord getRaw(String key) throws ARedisException {
         checkInit();
-        return Native.getRaw(name, nativePtr, key);
+        return mANative.getRaw(name, nativePtr, key);
     }
 
     public synchronized void delete(String key) throws ARedisException {
         checkInit();
-        Native.removeNative(name, nativePtr, key);
+        mANative.removeNative(name, nativePtr, key);
 
         if (!persist) {
             return;
