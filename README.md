@@ -222,3 +222,9 @@ string为 aredis节点名称，lru为实际存储键值对的容器，也使用h
 | aredis-aof | 55ms |  |
 
 
+#### 跨进程问题：
+通过flock机制 不允许多进程同时使用普通模式下的ARedis节点
+A进程实例化了 普通节点nodeA
+B进程可以通过ARedisFactory.createProcessAredis()方法生成一个 基于AIDL的支持跨进程访问nodeA节点的对象。
+B进程的变化可以实时被A进程感知。
+
